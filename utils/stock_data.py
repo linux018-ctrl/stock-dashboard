@@ -280,76 +280,84 @@ def get_index_quote(ticker_symbol: str) -> Optional[dict]:
         # 判斷是否盤中 — 盤中用分鐘線取最新價
         is_tw_ticker = ticker_symbol.endswith(".TW") or ticker_symbol.endswith(".TWO") or ticker_symbol == "^TWII"
         is_futures = ticker_symbol.endswith("=F")
+        is_us_index = ticker_symbol.startswith("^") and not is_tw_ticker
         if is_tw_ticker:
             market_open = is_tw_market_open()
         elif is_futures:
             market_open = is_us_futures_open()
+        elif is_us_index:
+            # 美股指數: 嘗試用分鐘線，即使盤後也可能有更新
+            market_open = is_us_market_open()
         else:
+            # 美股個股/ETF: 盤前盤後都嘗試取即時資料
             market_open = is_us_market_open()
 
-        if market_open:
-            # 盤中：用 1 分鐘間距取最近 1 天資料
+        # 不管判斷結果，一律先嘗試取 1 分鐘線，有資料就用
+        try:
             hist_intraday = ticker.history(period="1d", interval="1m")
+        except Exception:
+            hist_intraday = None
+        hist_daily = ticker.history(period="5d", interval="1d")
+
+        if hist_intraday is not None and not hist_intraday.empty:
+            latest_price = float(hist_intraday["Close"].iloc[-1])
+            latest_high = float(hist_intraday["High"].max())
+            latest_low = float(hist_intraday["Low"].min())
+            latest_open = float(hist_intraday["Open"].iloc[0])
+            latest_volume = int(hist_intraday["Volume"].sum()) if "Volume" in hist_intraday else None
+            last_update = hist_intraday.index[-1]
+
+            # 前一日收盤從日線取得
+            if hist_daily is not None and len(hist_daily) >= 2:
+                prev_close = float(hist_daily["Close"].iloc[-2])
+            else:
+                prev_close = latest_price
+
+            change = latest_price - prev_close
+            change_pct = (change / prev_close) * 100 if prev_close != 0 else 0
+
+            # sparkline 用分鐘線最近的數據點（每 5 分鐘取樣）
+            sparkline_raw = hist_intraday["Close"].tolist()
+            step = max(1, len(sparkline_raw) // 50)
+            sparkline_data = sparkline_raw[::step]
+
+            # 格式化時間戳
+            if hasattr(last_update, 'tz') and last_update.tz:
+                ts_str = last_update.strftime("%H:%M:%S %Z")
+            else:
+                ts_str = last_update.strftime("%H:%M:%S")
+
+            return {
+                "symbol": ticker_symbol,
+                "price": round(latest_price, 2),
+                "change": round(change, 2),
+                "change_pct": round(change_pct, 2),
+                "prev_close": round(prev_close, 2),
+                "open": round(latest_open, 2),
+                "high": round(latest_high, 2),
+                "low": round(latest_low, 2),
+                "volume": latest_volume,
+                "sparkline": sparkline_data,
+                "is_realtime": True,
+                "last_update": ts_str,
+                "data_source": "1min intraday",
+            }
+
+        # 分鐘線無資料：用日線
+        if hist_daily is None or hist_daily.empty:
             hist_daily = ticker.history(period="5d", interval="1d")
 
-            if hist_intraday is not None and not hist_intraday.empty:
-                latest_price = float(hist_intraday["Close"].iloc[-1])
-                latest_high = float(hist_intraday["High"].max())
-                latest_low = float(hist_intraday["Low"].min())
-                latest_open = float(hist_intraday["Open"].iloc[0])
-                latest_volume = int(hist_intraday["Volume"].sum()) if "Volume" in hist_intraday else None
-                last_update = hist_intraday.index[-1]
-
-                # 前一日收盤從日線取得
-                if hist_daily is not None and len(hist_daily) >= 2:
-                    prev_close = float(hist_daily["Close"].iloc[-2])
-                else:
-                    prev_close = latest_price
-
-                change = latest_price - prev_close
-                change_pct = (change / prev_close) * 100 if prev_close != 0 else 0
-
-                # sparkline 用分鐘線最近的數據點（每 5 分鐘取樣）
-                sparkline_raw = hist_intraday["Close"].tolist()
-                step = max(1, len(sparkline_raw) // 50)
-                sparkline_data = sparkline_raw[::step]
-
-                # 格式化時間戳
-                if hasattr(last_update, 'tz') and last_update.tz:
-                    ts_str = last_update.strftime("%H:%M:%S %Z")
-                else:
-                    ts_str = last_update.strftime("%H:%M:%S")
-
-                return {
-                    "symbol": ticker_symbol,
-                    "price": round(latest_price, 2),
-                    "change": round(change, 2),
-                    "change_pct": round(change_pct, 2),
-                    "prev_close": round(prev_close, 2),
-                    "open": round(latest_open, 2),
-                    "high": round(latest_high, 2),
-                    "low": round(latest_low, 2),
-                    "volume": latest_volume,
-                    "sparkline": sparkline_data,
-                    "is_realtime": True,
-                    "last_update": ts_str,
-                    "data_source": "1min intraday",
-                }
-
-        # 收盤後 or 抓不到分鐘線：用日線
-        hist = ticker.history(period="5d", interval="1d")
-
-        if hist.empty:
+        if hist_daily is None or hist_daily.empty:
             return None
 
-        last_close = float(hist["Close"].iloc[-1])
-        prev_close = float(hist["Close"].iloc[-2]) if len(hist) > 1 else last_close
+        last_close = float(hist_daily["Close"].iloc[-1])
+        prev_close = float(hist_daily["Close"].iloc[-2]) if len(hist_daily) > 1 else last_close
         change = last_close - prev_close
         change_pct = (change / prev_close) * 100 if prev_close != 0 else 0
 
-        sparkline_data = hist["Close"].tolist()
+        sparkline_data = hist_daily["Close"].tolist()
 
-        last_date = hist.index[-1]
+        last_date = hist_daily.index[-1]
         if hasattr(last_date, 'strftime'):
             ts_str = last_date.strftime("%Y-%m-%d")
         else:
@@ -361,10 +369,10 @@ def get_index_quote(ticker_symbol: str) -> Optional[dict]:
             "change": round(change, 2),
             "change_pct": round(change_pct, 2),
             "prev_close": round(prev_close, 2),
-            "open": round(float(hist["Open"].iloc[-1]), 2),
-            "high": round(float(hist["High"].iloc[-1]), 2),
-            "low": round(float(hist["Low"].iloc[-1]), 2),
-            "volume": int(hist["Volume"].iloc[-1]) if hist["Volume"].iloc[-1] > 0 else None,
+            "open": round(float(hist_daily["Open"].iloc[-1]), 2),
+            "high": round(float(hist_daily["High"].iloc[-1]), 2),
+            "low": round(float(hist_daily["Low"].iloc[-1]), 2),
+            "volume": int(hist_daily["Volume"].iloc[-1]) if hist_daily["Volume"].iloc[-1] > 0 else None,
             "sparkline": sparkline_data,
             "is_realtime": False,
             "last_update": ts_str,
