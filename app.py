@@ -408,9 +408,10 @@ def _render_taifex_card(contract: dict):
     )
 
     vol_str = f"量 {contract['volume']:,}" if contract.get("volume") else ""
-    bid_ask = ""
     if contract.get("bid_price") and contract.get("ask_price"):
-        bid_ask = f"<div style='font-size: 0.75rem; color: #999; margin-top: 2px;'>買 {contract['bid_price']:,.0f} / 賣 {contract['ask_price']:,.0f}</div>"
+        bid_ask = f"買 {contract['bid_price']:,.0f} / 賣 {contract['ask_price']:,.0f}"
+    else:
+        bid_ask = ""
 
     st.markdown(
         f"""<div style='background: rgba(30,30,46,0.8); border-radius: 12px; padding: 16px;
@@ -419,16 +420,11 @@ def _render_taifex_card(contract: dict):
                     min-height: 180px;'>
             <div style='font-size: 0.8rem; color: #888;'>{emoji} {name} ({session_label})</div>
             <div style='font-size: 0.9rem; color: #aaa; margin: 2px 0;'>{symbol_id}</div>
-            <div style='font-size: 1.6rem; font-weight: bold; color: {chg_color}; margin: 6px 0;'>
-                {price:,.0f}
-            </div>
-            <div style='font-size: 0.95rem; color: {chg_color};'>
-                {arrow} {sign}{change:,.0f} ({sign}{change_pct:.2f}%)
-            </div>
+            <div style='font-size: 1.6rem; font-weight: bold; color: {chg_color}; margin: 6px 0;'>{price:,.0f}</div>
+            <div style='font-size: 0.95rem; color: {chg_color};'>{arrow} {sign}{change:,.0f} ({sign}{change_pct:.2f}%)</div>
             <div style='font-size: 0.8rem; color: #aaa; margin-top: 4px;'>{vol_str}</div>
-            {bid_ask}
-            <div style='margin-top: 6px;'>{rt_badge}</div>
-        </div>""",
+            <div style='font-size: 0.75rem; color: #999; margin-top: 2px;'>{bid_ask}</div>
+            <div style='margin-top: 6px;'>{rt_badge}</div></div>""",
         unsafe_allow_html=True,
     )
 
