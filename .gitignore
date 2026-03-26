@@ -5,3 +5,4 @@ __pycache__/
 *.log
 test_*.py
 .streamlit/secrets.toml
+*.db
