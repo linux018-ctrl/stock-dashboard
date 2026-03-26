@@ -1157,7 +1157,7 @@ st.markdown("---")
 st.markdown(
     f"""
     <div style='text-align: center; color: #666; font-size: 0.8rem;'>
-        📈 台股美股查詢系統 | 資料來源: Yahoo Finance | 
+        📈 台股美股查詢系統 v1.3 | 資料來源: Yahoo Finance + TAIFEX | 
         最後更新: {_now_tw().strftime('%Y-%m-%d %H:%M')}
         <br>⚠️ 本系統僅供參考，投資有風險，請自行判斷
     </div>

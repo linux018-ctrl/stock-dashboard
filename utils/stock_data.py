@@ -10,6 +10,8 @@ from typing import Optional
 import pytz
 
 
+
+
 def get_ticker_symbol(code: str, market: str) -> str:
     """
     根據市場類型組合完整的 ticker symbol
@@ -292,12 +294,15 @@ def get_index_quote(ticker_symbol: str) -> Optional[dict]:
             # 美股個股/ETF: 盤前盤後都嘗試取即時資料
             market_open = is_us_market_open()
 
-        # 不管判斷結果，一律先嘗試取 1 分鐘線，有資料就用
+        # 一律先嘗試取 1 分鐘線（用 2d 確保跨日夜盤資料完整）
         try:
-            hist_intraday = ticker.history(period="1d", interval="1m")
+            hist_intraday = ticker.history(period="2d", interval="1m")
         except Exception:
             hist_intraday = None
-        hist_daily = ticker.history(period="5d", interval="1d")
+        try:
+            hist_daily = ticker.history(period="5d", interval="1d")
+        except Exception:
+            hist_daily = None
 
         if hist_intraday is not None and not hist_intraday.empty:
             latest_price = float(hist_intraday["Close"].iloc[-1])
@@ -345,7 +350,10 @@ def get_index_quote(ticker_symbol: str) -> Optional[dict]:
 
         # 分鐘線無資料：用日線
         if hist_daily is None or hist_daily.empty:
-            hist_daily = ticker.history(period="5d", interval="1d")
+            try:
+                hist_daily = ticker.history(period="5d", interval="1d")
+            except Exception:
+                pass
 
         if hist_daily is None or hist_daily.empty:
             return None
