@@ -169,6 +169,31 @@ def is_us_market_open() -> bool:
     return False
 
 
+def is_us_futures_open() -> bool:
+    """判斷美股期貨是否在交易時間（幾乎 24 小時）
+    交易時段: 週日 18:00 ET ~ 週五 17:00 ET
+    每日維護: 17:00~18:00 ET (Mon-Fri)
+    """
+    et = pytz.timezone("US/Eastern")
+    now_et = datetime.now(et)
+    weekday = now_et.weekday()  # 0=Mon
+    hour = now_et.hour
+
+    # 週六全天休市
+    if weekday == 5:
+        return False
+    # 週日 18:00 前休市
+    if weekday == 6 and hour < 18:
+        return False
+    # 週一~五 每日 17:00~18:00 維護
+    if weekday < 5 and hour == 17:
+        return False
+    # 週五 17:00 後休市
+    if weekday == 4 and hour >= 17:
+        return False
+    return True
+
+
 def is_tw_market_open() -> bool:
     """判斷台股是否在開盤時間"""
     tw = pytz.timezone("Asia/Taipei")
@@ -254,7 +279,13 @@ def get_index_quote(ticker_symbol: str) -> Optional[dict]:
 
         # 判斷是否盤中 — 盤中用分鐘線取最新價
         is_tw_ticker = ticker_symbol.endswith(".TW") or ticker_symbol.endswith(".TWO") or ticker_symbol == "^TWII"
-        market_open = is_tw_market_open() if is_tw_ticker else is_us_market_open()
+        is_futures = ticker_symbol.endswith("=F")
+        if is_tw_ticker:
+            market_open = is_tw_market_open()
+        elif is_futures:
+            market_open = is_us_futures_open()
+        else:
+            market_open = is_us_market_open()
 
         if market_open:
             # 盤中：用 1 分鐘間距取最近 1 天資料
