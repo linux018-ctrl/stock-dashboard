@@ -265,7 +265,7 @@ def get_market_status() -> dict:
         "tw_night_status": tw_night_status,
         "us_time": now_et.strftime("%Y-%m-%d %H:%M:%S ET"),
         "tw_time": now_tw.strftime("%Y-%m-%d %H:%M:%S"),
-        "fetch_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "fetch_time": datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d %H:%M:%S"),
     }
 
 

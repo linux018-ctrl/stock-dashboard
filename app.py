@@ -11,6 +11,11 @@ from datetime import datetime
 from typing import Optional
 
 from datetime import timedelta
+import pytz
+
+def _now_tw():
+    return datetime.now(pytz.timezone("Asia/Taipei"))
+
 from utils.stock_data import (
     get_ticker_symbol,
     get_stock_info,
@@ -439,7 +444,7 @@ def display_indices_dashboard():
     @st.fragment(run_every=run_every_val)
     def realtime_index_panel():
         """即時指數面板 — 自動定時刷新"""
-        fetch_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        fetch_time = _now_tw().strftime("%Y-%m-%d %H:%M:%S")
 
         # 狀態列
         status_col1, status_col2 = st.columns([3, 1])
@@ -1153,7 +1158,7 @@ st.markdown(
     f"""
     <div style='text-align: center; color: #666; font-size: 0.8rem;'>
         📈 台股美股查詢系統 | 資料來源: Yahoo Finance | 
-        最後更新: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+        最後更新: {_now_tw().strftime('%Y-%m-%d %H:%M')}
         <br>⚠️ 本系統僅供參考，投資有風險，請自行判斷
     </div>
     """,
